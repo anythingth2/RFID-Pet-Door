@@ -1,0 +1,26 @@
+--cpu Cortex-M3
+"rfid-pet-door\stm32f1xx_hal_spi_ex.o"
+"rfid-pet-door\stm32f1xx_hal_flash.o"
+"rfid-pet-door\stm32f1xx_hal_gpio.o"
+"rfid-pet-door\stm32f1xx_hal_rcc.o"
+"rfid-pet-door\stm32f1xx_hal_tim_ex.o"
+"rfid-pet-door\stm32f1xx_hal_cortex.o"
+"rfid-pet-door\stm32f1xx_hal_spi.o"
+"rfid-pet-door\stm32f1xx_hal_tim.o"
+"rfid-pet-door\stm32f1xx_hal_uart.o"
+"rfid-pet-door\stm32f1xx_hal.o"
+"rfid-pet-door\stm32f1xx_hal_gpio_ex.o"
+"rfid-pet-door\stm32f1xx_hal_rcc_ex.o"
+"rfid-pet-door\stm32f1xx_hal_pwr.o"
+"rfid-pet-door\stm32f1xx_hal_dma.o"
+"rfid-pet-door\stm32f1xx_hal_flash_ex.o"
+"rfid-pet-door\startup_stm32f107xc.o"
+"rfid-pet-door\system_stm32f1xx.o"
+"rfid-pet-door\main.o"
+"rfid-pet-door\stm32f1xx_hal_msp.o"
+"rfid-pet-door\stm32f1xx_it.o"
+"rfid-pet-door\rc522.o"
+--library_type=microlib --strict --scatter "RFID-Pet-Door\RFID-Pet-Door.sct"
+--diag_suppress=L6329 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "RFID-Pet-Door.map" -o RFID-Pet-Door\RFID-Pet-Door.axf
