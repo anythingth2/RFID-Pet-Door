@@ -1,1 +1,10 @@
 # RFID-Pet-Door
+STM32F107
+
+RC522
+PA4 -> SDA
+PA5 -> SCK
+PA6 -> MISO
+PA7 -> MOSI
+
+RESET -> Active Low
