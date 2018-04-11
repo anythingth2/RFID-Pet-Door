@@ -41,6 +41,8 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -60,9 +62,14 @@ uint8_t		end[1] = "\r";
 uint8_t		txBuffer[18] = "Card ID: 00000000\r";
 uint8_t 	retstr[10];
 uint8_t 	rxBuffer[8];
-uint8_t		lastID[4];
-uint8_t		memID[8] = "9C55A1B5";
+uint8_t		lastID[MFRC522_MAX_LEN];
+uint8_t		memID[MFRC522_MAX_LEN] = "9C55A1B5";
 uint8_t		str[MFRC522_MAX_LEN];																						// MFRC522_MAX_LEN = 16
+uint8_t		accountID[2][MFRC522_MAX_LEN] = {{0xB,0xC,0xE,0xB,0x4,0xA,0x9},{0xE,0x6,0xA,0x1,0x0,0x5,0x9,0x4}};
+//uint8_t		accountID[10][MFRC522_MAX_LEN] = {"E6A10594","B7CEB4A9"};
+uint8_t 	numberAccount = 0;
+uint8_t isRepeatID = 0;
+uint8_t isOpening = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,6 +78,10 @@ void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
+                                    
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+                                
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -196,6 +207,63 @@ void led(uint8_t n) {
 		HAL_Delay(100);
 	}
 }
+
+uint8_t checkRepeatID(){
+	int isRepeat = 1;
+	for (i=0; i<MFRC522_MAX_LEN; i++) if (lastID[i] != str[i]) isRepeat = 0;								// Repeat test
+	return isRepeat;
+}
+
+void saveLastID(){
+	for(i=0;i<MFRC522_MAX_LEN;i++){
+		lastID[i]=str[i];
+	}
+}
+void alertOn(){
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+	HAL_Delay(300);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+}
+void openDoor(){
+	alertOn();
+	float closeDoorDutyCycle = 1.95/20;
+	float openDoorDutyCycle = 1.0/20;
+	
+	htim2.Instance->CCR3 = (1000-1)*openDoorDutyCycle;
+	HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);
+	HAL_Delay(1000);
+	htim2.Instance->CCR3 = (1000-1)*closeDoorDutyCycle;
+	//HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);
+}
+void addDog(){
+	for(i = 0;i<3;i++){
+		alertOn();
+	}
+	
+	for(i=0;i<MFRC522_MAX_LEN;i++){
+		accountID[numberAccount][i] = str[i];
+	}
+	numberAccount++;
+}
+uint8_t authenicate(){
+	uint8_t isPass = 1;
+	for(i = 0;i<2;i++){
+		isPass = 1;
+		for(j = 0; j < MFRC522_MAX_LEN ; j++ ){
+			if(accountID[i][j] != str[j] )
+				isPass = 0;
+		}
+		if(isPass == 1){
+			//return isPass;
+		}
+	}
+	isPass = 1;
+	for(j = 0; j < MFRC522_MAX_LEN ; j++ ){
+			if(accountID[0][j] != str[j] )
+				isPass = 0;
+		}
+	return 1;
+}
 /* USER CODE END 0 */
 
 int main(void)
@@ -217,11 +285,14 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
 
   /* USER CODE BEGIN 2 */
 	MFRC522_Init();
 	HAL_UART_Transmit(&huart2, text1, 63, 100);
 	HAL_UART_Receive_IT(&huart2,(uint8_t*)rxBuffer, 1);
+	openDoor();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -234,76 +305,27 @@ int main(void)
 
 		if (!MFRC522_Request(PICC_REQIDL, str)) {
 			if (!MFRC522_Anticoll(str)) {
-				j = 0;
-				q = 0;
-				b = 9;
-				en = 1;
-				char test[16]="Detected!\n";
-				HAL_UART_Transmit(&huart2,(uint8_t*)test,16,100);
-				for (i=0; i<4; i++) if (lastID[i] != str[i]) j = 1;								// Repeat test
 				
-				if (j && en) {
-					q = 0;
-					en = 0;
-					for (i=0; i<4; i++) lastID[i] = str[i];
-					//HAL_UART_Transmit(&huart1, text2, 9, 100);				
-					for (i=0; i<4; i++) {
-						char_to_hex(str[i]);
-						txBuffer[b] = retstr[0];
-						b++;
-						txBuffer[b] = retstr[1];
-						b++;
-						//ToStr(str[i]);
-						//HAL_UART_Transmit(&huart1, retstr, 10, 100);
-					}										
-					//HAL_UART_Transmit(&huart1, end, 1, 100);
-					HAL_UART_Transmit(&huart2, txBuffer, 18, 100);
-					
-					
-					ok = 1;
-					for (i=0; i<8; i++) if (txBuffer[9+i] != memID[i]) ok = 0;
-//					led(1);
-				}
+				isRepeatID = checkRepeatID();
 				
-//				led(1);
+				//if(!isRepeatID)
+			//	{HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);openDoor();}
+				HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);
+			
+				openDoor();
+				
+					
+				
+				saveLastID();
+				
 			}
 		}
 		
-		if (ok == 1) {
-			ok = 0;
-//			for (i=0; i<10; i++) {
-//				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);			         	// LED2 ON
-//				HAL_Delay(50);
-//				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);				     	// LED2 OFF
-//				HAL_Delay(100);
-//			}
-		}
-
-		if (huart2.RxXferCount == 0) {
-//			led(1);
-			comand = rxBuffer[0];
-			if (comand == '1') {
-//				led(1);
-				HAL_UART_Transmit(&huart2, txBuffer, 18, 100);
-				
-			}
-			HAL_UART_Receive_IT(&huart2, (uint8_t*)rxBuffer, 1);
-		}
+//		if(HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_0) == GPIO_PIN_RESET){
+//					addDog();
+//				}
 		
-	//	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET) {
-	//		HAL_UART_Transmit(&huart2, txBuffer, 18, 100);
-//			CDC_Transmit_FS(txBuffer, 18);
-//			led(1);
-	//		while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET);
-//			HAL_Delay(100);
-//		}
-		
-		q++;
-		if (!q) {
-			en = 1;																															// Delay against scan kode
-			for (i=0; i<4; i++) lastID[i] = 0;																	// Delay reading the same card 3s
-		}
-		HAL_Delay(5);
+		HAL_Delay(1);
   }
   /* USER CODE END 3 */
 
@@ -319,14 +341,17 @@ void SystemClock_Config(void)
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV5;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = 16;
-  RCC_OscInitStruct.Prediv1Source = RCC_PREDIV1_SOURCE_HSE;
+  RCC_OscInitStruct.Prediv1Source = RCC_PREDIV1_SOURCE_PLL2;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL8;
-  RCC_OscInitStruct.PLL2.PLL2State = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  RCC_OscInitStruct.PLL2.PLL2State = RCC_PLL2_ON;
+  RCC_OscInitStruct.PLL2.PLL2MUL = RCC_PLL2_MUL8;
+  RCC_OscInitStruct.PLL2.HSEPrediv2Value = RCC_HSE_PREDIV2_DIV5;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -337,11 +362,11 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV4;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -385,6 +410,55 @@ static void MX_SPI1_Init(void)
 
 }
 
+/* TIM2 init function */
+static void MX_TIM2_Init(void)
+{
+
+  TIM_ClockConfigTypeDef sClockSourceConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+  TIM_OC_InitTypeDef sConfigOC;
+
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = (72-1)*20;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 1000-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = (1000-1)/2;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
 /* USART2 init function */
 static void MX_USART2_UART_Init(void)
 {
@@ -420,14 +494,20 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  /*Configure GPIO pins : PA4 PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_15, GPIO_PIN_RESET);
 
 }
 
