@@ -373,7 +373,7 @@
               <MiscControls>--C99</MiscControls>
               <Define>USE_HAL_DRIVER,STM32F107xC</Define>
               <Undefine />
-              <IncludePath>../Inc;         ../Drivers/STM32F1xx_HAL_Driver/Inc;         ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;         ../Drivers/CMSIS/Device/ST/STM32F1xx/Include;         ../Drivers/CMSIS/Include;         ..\RC522</IncludePath>
+              <IncludePath>../Inc;  ../Drivers/STM32F1xx_HAL_Driver/Inc;  ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;  ../Drivers/CMSIS/Device/ST/STM32F1xx/Include;  ../Drivers/CMSIS/Include;  ..\RC522;  ..\ET_STM32F107</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -540,6 +540,16 @@
               <FileName>rc522.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\RC522\rc522.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Drivers/ET_STM32F107</GroupName>
+          <Files>
+            <File>
+              <FileName>et_stm32f_arm_kit_lcd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ET_STM32F107\et_stm32f_arm_kit_lcd.c</FilePath>
             </File>
           </Files>
         </Group>
