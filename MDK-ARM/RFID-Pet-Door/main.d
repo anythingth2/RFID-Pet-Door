@@ -29,3 +29,5 @@ rfid-pet-door\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
 rfid-pet-door\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
 rfid-pet-door\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
 rfid-pet-door\main.o: ..\RC522\rc522.h
+rfid-pet-door\main.o: ..\ET_STM32F107\et_stm32f_arm_kit_lcd.h
+rfid-pet-door\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

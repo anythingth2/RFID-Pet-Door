@@ -56,7 +56,7 @@ uint8_t SPI1SendByte(uint8_t data) {
 	unsigned char readValue[1];
 	
 	writeCommand[0] = data;
-	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&writeCommand, (uint8_t*)&readValue, 1, 10);
+	HAL_SPI_TransmitReceive(&hspi1, (uint8_t*)&writeCommand, (uint8_t*)&readValue, 1, 100);
 	return readValue[0];
 	
 	//while (SPI1->SR & SPI_SR_BSY);								// STM32F030 - ждем конец передачи

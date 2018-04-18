@@ -6,6 +6,8 @@
 #define cs_reset() 					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET)
 #define cs_set() 						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET)
 
+//define cs_reset() 					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET)
+//#define cs_set() 						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET)
 // Status enumeration, Used with most functions
 #define MI_OK													0
 #define MI_NOTAGERR										1

@@ -36,17 +36,31 @@
 
 /* USER CODE BEGIN Includes */
 #include "rc522.h"
+#include "et_stm32f_arm_kit_lcd.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
+SPI_HandleTypeDef hspi3;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+#define White 0xFFFF
+#define Black 0x0000
+#define Grey 0xF7DE
+#define Blue 0x001F
+#define Blue2 0x051F
+#define Red 0xF800
+#define Magenta 0xF81F
+#define Green 0x07E0
+#define Cyan 0x7FFF
+#define Yellow 0xFFE0
 
 uint8_t 	k;
 uint8_t 	i;
@@ -70,16 +84,22 @@ uint8_t		accountID[2][MFRC522_MAX_LEN] = {{0xB,0xC,0xE,0xB,0x4,0xA,0x9},{0xE,0x6
 uint8_t 	numberAccount = 0;
 uint8_t isRepeatID = 0;
 uint8_t isOpening = 0;
+
+uint32_t time_counter = 0;
+uint32_t last_open = 0;
+uint8_t status_dog = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
-static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
-                                    
+static void MX_SPI1_Init(void);
+static void MX_SPI3_Init(void);
+static void MX_TIM1_Init(void);
+
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
 
@@ -225,6 +245,9 @@ void alertOn(){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
 }
 void openDoor(){
+	last_open = time_counter;
+	status_dog = !status_dog;
+	
 	alertOn();
 	float closeDoorDutyCycle = 1.95/20;
 	float openDoorDutyCycle = 1.0/20;
@@ -233,7 +256,24 @@ void openDoor(){
 	HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);
 	HAL_Delay(1000);
 	htim2.Instance->CCR3 = (1000-1)*closeDoorDutyCycle;
-	//HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);
+	
+	
+	
+	//
+}
+
+void displayLastOpen(){
+	char time_str[32];
+	sprintf(time_str,"%02d:%02d:%02d",(time_counter - last_open)/3600,(time_counter - last_open)/60,(time_counter - last_open)%60);
+	LCD_DisplayStringLine(Line3,"Last opening at ");
+	LCD_DisplayStringLine(Line4,time_str);
+	char status_text[16];
+	
+	if(status_dog)
+	{
+		LCD_DisplayStringLine(Line1,"Doggy is here!");}
+	else{
+		LCD_DisplayStringLine(Line1,"Where is doggy");}
 }
 void addDog(){
 	for(i = 0;i<3;i++){
@@ -283,16 +323,26 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_SPI1_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
+  MX_SPI1_Init();
+  MX_SPI3_Init();
+  MX_TIM1_Init();
 
   /* USER CODE BEGIN 2 */
+	
 	MFRC522_Init();
+	LCD_Setup();
+	HAL_TIM_Base_Start_IT(&htim1);
+	
 	HAL_UART_Transmit(&huart2, text1, 63, 100);
 	HAL_UART_Receive_IT(&huart2,(uint8_t*)rxBuffer, 1);
 	openDoor();
-
+	//LCD_Clear(White);
+	LCD_SetBackColor(Black);
+	LCD_SetTextColor(White);
+	
+	char time_string[16];
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -302,7 +352,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+		MFRC522_Init();
 		if (!MFRC522_Request(PICC_REQIDL, str)) {
 			if (!MFRC522_Anticoll(str)) {
 				
@@ -310,22 +360,18 @@ int main(void)
 				
 				//if(!isRepeatID)
 			//	{HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);openDoor();}
-				HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);
-			
-				openDoor();
 				
-					
+				openDoor();
 				
 				saveLastID();
 				
 			}
+		HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);
 		}
-		
-//		if(HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_0) == GPIO_PIN_RESET){
-//					addDog();
-//				}
-		
-		HAL_Delay(1);
+		sprintf(time_string,"\r\n%d",time_counter);
+		HAL_UART_Transmit(&huart2,(uint8_t*)time_string,strlen(time_string),100);
+	
+		HAL_Delay(10);
   }
   /* USER CODE END 3 */
 
@@ -404,6 +450,62 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 10;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/* SPI3 init function */
+static void MX_SPI3_Init(void)
+{
+
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/* TIM1 init function */
+static void MX_TIM1_Init(void)
+{
+
+  TIM_ClockConfigTypeDef sClockSourceConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = (72-1)*250;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = (1000-1)*4;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -492,6 +594,7 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin : PA0 */
@@ -506,8 +609,26 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PC8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PD7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_RESET);
 
 }
 
