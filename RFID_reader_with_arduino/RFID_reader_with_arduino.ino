@@ -45,7 +45,8 @@ void openDoor() {
 }
 byte buffer1[18];
 byte buffer2[18];
-byte myDog[18] = {0xB7, 0xCE, 0xB4, 0xA9};
+//byte myDog[18] = {0xB7, 0xCE, 0xB4, 0xA9};
+byte myDog[18] = {0x0C, 0x69, 0x2B, 0x83};
 int authenticate() {
   int ok = 1;
   for (uint8_t i = 0; i < 4; i++) {

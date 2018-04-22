@@ -254,7 +254,7 @@ void openDoor(){
 	
 	htim2.Instance->CCR3 = (1000-1)*openDoorDutyCycle;
 	HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);
-	HAL_Delay(1000);
+	HAL_Delay(5000);
 	htim2.Instance->CCR3 = (1000-1)*closeDoorDutyCycle;
 	
 	
