@@ -239,23 +239,28 @@ void saveLastID(){
 		lastID[i]=str[i];
 	}
 }
+
+//turn on buzzer
 void alertOn(){
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
 	HAL_Delay(300);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
 }
+
+
+
 void openDoor(){
 	last_open = time_counter;
 	status_dog = !status_dog;
 	
-	alertOn();
-	float closeDoorDutyCycle = 1.95/20;
+	alertOn();			//alert user once
+	float closeDoorDutyCycle = 1.95/20;		//duty cycle for servo
 	float openDoorDutyCycle = 1.0/20;
 	
-	htim2.Instance->CCR3 = (1000-1)*openDoorDutyCycle;
-	HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);
-	HAL_Delay(5000);
-	htim2.Instance->CCR3 = (1000-1)*closeDoorDutyCycle;
+	htim2.Instance->CCR3 = (1000-1)*openDoorDutyCycle;	//setting open door duty cylce
+	HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_3);						//start generate pwm
+	HAL_Delay(5000);																		//delay opening
+	htim2.Instance->CCR3 = (1000-1)*closeDoorDutyCycle;	//setting close door duty cycle
 	
 	
 	
@@ -331,13 +336,13 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 	
-	MFRC522_Init();
+	MFRC522_Init();						
 	LCD_Setup();
-	HAL_TIM_Base_Start_IT(&htim1);
+	HAL_TIM_Base_Start_IT(&htim1);		//initilize open door timer
 	
 	HAL_UART_Transmit(&huart2, text1, 63, 100);
 	HAL_UART_Receive_IT(&huart2,(uint8_t*)rxBuffer, 1);
-	openDoor();
+	openDoor();								
 	//LCD_Clear(White);
 	LCD_SetBackColor(Black);
 	LCD_SetTextColor(White);
@@ -352,21 +357,21 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-		MFRC522_Init();
-		if (!MFRC522_Request(PICC_REQIDL, str)) {
-			if (!MFRC522_Anticoll(str)) {
+		MFRC522_Init();					//initilize rfid reader
+		if (!MFRC522_Request(PICC_REQIDL, str)) {			//sending reading rfid tag request to rfid tag 
+			if (!MFRC522_Anticoll(str)) {								//check collision between signal
 				
-				isRepeatID = checkRepeatID();
+				isRepeatID = checkRepeatID();							//check last rfid tag
 				
 				//if(!isRepeatID)
 			//	{HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);openDoor();}
 				
-				openDoor();
+				openDoor();																//open door
 				
-				saveLastID();
+				saveLastID();															//save id
 				
 			}
-		HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);
+		HAL_UART_Transmit(&huart2,str,MFRC522_MAX_LEN,100);			//logging uid of tag
 		}
 		sprintf(time_string,"\r\n%d",time_counter);
 		HAL_UART_Transmit(&huart2,(uint8_t*)time_string,strlen(time_string),100);
